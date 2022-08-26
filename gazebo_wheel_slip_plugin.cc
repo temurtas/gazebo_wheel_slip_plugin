@@ -373,9 +373,9 @@ void GazeboWheelSlipPlugin::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf)
 
   const gazebo_ros::QoS & qos = this->dataPtr->ros_node_->get_qos();
 
-  this->dataPtr->sub_ = this->dataPtr->ros_node_->create_subscription<gazebo_msgs::msg::ContactsState>(
-    "kobra_mk5/rear_right_contact_forces", 10,
-    std::bind(&GazeboWheelSlipPlugin::Update, this));
+  // this->dataPtr->sub_ = this->dataPtr->ros_node_->create_subscription<gazebo_msgs::msg::ContactsState>(
+  //   "kobra_mk5/rear_right_contact_forces", 10,
+  //   std::bind(&GazeboWheelSlipPlugin::Update, this));
 
   // Connect to the update event
   this->dataPtr->updateConnection = event::Events::ConnectWorldUpdateBegin(
@@ -622,12 +622,17 @@ void GazeboWheelSlipPlugin::Update()
       LinkStateSolver(pos_body, vel_body, euler_body, link);
 
 
+      // surface->slip1 = 0.0;
+      // surface->slip2 = 0.0;
 
-      surface->slip1 = speed / force * params.slipComplianceLateral;
-      surface->slip2 = speed / force * params.slipComplianceLongitudinal;
+      // surface->slip1 = speed / force * params.slipComplianceLateral;
+      // surface->slip2 = speed / force * params.slipComplianceLongitudinal;
 
-      surface->FrictionPyramid()->SetMuPrimary(0.9);
-      surface->FrictionPyramid()->SetMuPrimary(0.9);
+      surface->slip1 = 0.001 + speed / 3e-5;
+      surface->slip2 = 0.001 + speed / 3e-5;
+
+      // surface->FrictionPyramid()->SetMuPrimary(0.3);
+      // surface->FrictionPyramid()->SetMuSecondary(0.3);
     }
 
     // Try to publish slip data for this wheel
