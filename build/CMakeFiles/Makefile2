@@ -54,6 +54,7 @@ CMAKE_BINARY_DIR = /home/temur/gazebo_wheel_slip_plugin/build
 
 # The main recursive "all" target.
 all: CMakeFiles/gazebo_wheel_slip_plugin.dir/all
+all: CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/all
 
 .PHONY : all
 
@@ -64,6 +65,7 @@ preinstall:
 
 # The main recursive "clean" target.
 clean: CMakeFiles/gazebo_wheel_slip_plugin.dir/clean
+clean: CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/clean
 clean: CMakeFiles/Gazebo_uninstall.dir/clean
 clean: CMakeFiles/uninstall.dir/clean
 
@@ -95,6 +97,33 @@ gazebo_wheel_slip_plugin: CMakeFiles/gazebo_wheel_slip_plugin.dir/rule
 CMakeFiles/gazebo_wheel_slip_plugin.dir/clean:
 	$(MAKE) -f CMakeFiles/gazebo_wheel_slip_plugin.dir/build.make CMakeFiles/gazebo_wheel_slip_plugin.dir/clean
 .PHONY : CMakeFiles/gazebo_wheel_slip_plugin.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir
+
+# All Build rule for target.
+CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/all:
+	$(MAKE) -f CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/build.make CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/depend
+	$(MAKE) -f CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/build.make CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/temur/gazebo_wheel_slip_plugin/build/CMakeFiles --progress-num=3,4 "Built target ht_nav_gazebo_wheel_slip_plugin"
+.PHONY : CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/temur/gazebo_wheel_slip_plugin/build/CMakeFiles 2
+	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/temur/gazebo_wheel_slip_plugin/build/CMakeFiles 0
+.PHONY : CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/rule
+
+# Convenience name for target.
+ht_nav_gazebo_wheel_slip_plugin: CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/rule
+
+.PHONY : ht_nav_gazebo_wheel_slip_plugin
+
+# clean rule for target.
+CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/clean:
+	$(MAKE) -f CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/build.make CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/clean
+.PHONY : CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/clean
 
 #=============================================================================
 # Target rules for target CMakeFiles/Gazebo_uninstall.dir

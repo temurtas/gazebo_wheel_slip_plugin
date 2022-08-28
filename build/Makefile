@@ -135,6 +135,19 @@ gazebo_wheel_slip_plugin/fast:
 .PHONY : gazebo_wheel_slip_plugin/fast
 
 #=============================================================================
+# Target rules for targets named ht_nav_gazebo_wheel_slip_plugin
+
+# Build rule for target.
+ht_nav_gazebo_wheel_slip_plugin: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 ht_nav_gazebo_wheel_slip_plugin
+.PHONY : ht_nav_gazebo_wheel_slip_plugin
+
+# fast build rule for target.
+ht_nav_gazebo_wheel_slip_plugin/fast:
+	$(MAKE) -f CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/build.make CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/build
+.PHONY : ht_nav_gazebo_wheel_slip_plugin/fast
+
+#=============================================================================
 # Target rules for targets named Gazebo_uninstall
 
 # Build rule for target.
@@ -187,6 +200,33 @@ gazebo_wheel_slip_plugin.cc.s:
 	$(MAKE) -f CMakeFiles/gazebo_wheel_slip_plugin.dir/build.make CMakeFiles/gazebo_wheel_slip_plugin.dir/gazebo_wheel_slip_plugin.cc.s
 .PHONY : gazebo_wheel_slip_plugin.cc.s
 
+ht_nav_gazebo_wheel_slip_plugin.o: ht_nav_gazebo_wheel_slip_plugin.cc.o
+
+.PHONY : ht_nav_gazebo_wheel_slip_plugin.o
+
+# target to build an object file
+ht_nav_gazebo_wheel_slip_plugin.cc.o:
+	$(MAKE) -f CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/build.make CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/ht_nav_gazebo_wheel_slip_plugin.cc.o
+.PHONY : ht_nav_gazebo_wheel_slip_plugin.cc.o
+
+ht_nav_gazebo_wheel_slip_plugin.i: ht_nav_gazebo_wheel_slip_plugin.cc.i
+
+.PHONY : ht_nav_gazebo_wheel_slip_plugin.i
+
+# target to preprocess a source file
+ht_nav_gazebo_wheel_slip_plugin.cc.i:
+	$(MAKE) -f CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/build.make CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/ht_nav_gazebo_wheel_slip_plugin.cc.i
+.PHONY : ht_nav_gazebo_wheel_slip_plugin.cc.i
+
+ht_nav_gazebo_wheel_slip_plugin.s: ht_nav_gazebo_wheel_slip_plugin.cc.s
+
+.PHONY : ht_nav_gazebo_wheel_slip_plugin.s
+
+# target to generate assembly for a file
+ht_nav_gazebo_wheel_slip_plugin.cc.s:
+	$(MAKE) -f CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/build.make CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/ht_nav_gazebo_wheel_slip_plugin.cc.s
+.PHONY : ht_nav_gazebo_wheel_slip_plugin.cc.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -197,11 +237,15 @@ help:
 	@echo "... edit_cache"
 	@echo "... test"
 	@echo "... gazebo_wheel_slip_plugin"
+	@echo "... ht_nav_gazebo_wheel_slip_plugin"
 	@echo "... Gazebo_uninstall"
 	@echo "... uninstall"
 	@echo "... gazebo_wheel_slip_plugin.o"
 	@echo "... gazebo_wheel_slip_plugin.i"
 	@echo "... gazebo_wheel_slip_plugin.s"
+	@echo "... ht_nav_gazebo_wheel_slip_plugin.o"
+	@echo "... ht_nav_gazebo_wheel_slip_plugin.i"
+	@echo "... ht_nav_gazebo_wheel_slip_plugin.s"
 .PHONY : help
 
 

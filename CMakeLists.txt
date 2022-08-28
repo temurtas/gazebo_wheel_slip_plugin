@@ -42,3 +42,16 @@ ament_target_dependencies(gazebo_wheel_slip_plugin
   "sensor_msgs"
   "std_msgs"
 )
+
+# Build ht_nav plugin
+add_library(ht_nav_gazebo_wheel_slip_plugin SHARED ht_nav_gazebo_wheel_slip_plugin.cc)
+target_link_libraries(ht_nav_gazebo_wheel_slip_plugin ${GAZEBO_LIBRARIES})
+
+ament_target_dependencies(ht_nav_gazebo_wheel_slip_plugin
+  "gazebo"
+  "gazebo_dev"
+  "gazebo_ros"
+  "rclcpp"
+  "sensor_msgs"
+  "std_msgs"
+)

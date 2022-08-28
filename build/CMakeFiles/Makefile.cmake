@@ -673,6 +673,7 @@ set(CMAKE_MAKEFILE_PRODUCTS
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/gazebo_wheel_slip_plugin.dir/DependInfo.cmake"
+  "CMakeFiles/ht_nav_gazebo_wheel_slip_plugin.dir/DependInfo.cmake"
   "CMakeFiles/Gazebo_uninstall.dir/DependInfo.cmake"
   "CMakeFiles/uninstall.dir/DependInfo.cmake"
   )
