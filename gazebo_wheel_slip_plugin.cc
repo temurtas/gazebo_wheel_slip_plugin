@@ -47,6 +47,7 @@
 #include <gazebo/transport/Publisher.hh>
 #include <gazebo/transport/Subscriber.hh>
 
+#include <gazebo/common/common.hh>
 #include "gazebo_wheel_slip_plugin.hh"
 
 namespace gazebo
@@ -618,8 +619,8 @@ void GazeboWheelSlipPlugin::Update()
       // so it is used for both slip directions.
       double speed = params.wheelRadius * std::abs(spinAngularVelocity);
 
-      double pos_body[3], vel_body[3], euler_body[3];
-      LinkStateSolver(pos_body, vel_body, euler_body, link);
+      double pos[3], vel[3], vel_body[3], euler[3];
+      LinkStateSolver(pos, vel, vel_body, euler, link);
 
 
       // surface->slip1 = 0.0;
@@ -653,7 +654,7 @@ void GazeboWheelSlipPlugin::rr_contact_cb(){
       "Subscribed to RR Contact Forces");
 }
 
-void GazeboWheelSlipPlugin::LinkStateSolver(double position_body[3], double velocity_body[3], double euler[3], physics::LinkPtr link)
+void GazeboWheelSlipPlugin::LinkStateSolver(double position_NED[3], double velocity_NED[3], double velocity_body[3], double euler[3], physics::LinkPtr link)
 {
   ignition::math::Vector3d velocity;
   ignition::math::Pose3d position;
@@ -662,7 +663,7 @@ void GazeboWheelSlipPlugin::LinkStateSolver(double position_body[3], double velo
   position = link->WorldPose();
 
   double c_nb[3][3];
-  double position_NED[3], velocity_NED[3];
+  // double position_NED[3], velocity_NED[3];
 
 
   position_NED[0] = -position.Y();
@@ -673,12 +674,19 @@ void GazeboWheelSlipPlugin::LinkStateSolver(double position_body[3], double velo
   velocity_NED[1] = -velocity.X();
   velocity_NED[2] = -velocity.Z();
 
-  euler[0] =  position.Rot().Roll();
-  euler[1] =  position.Rot().Pitch();
-  euler[2] =  position.Rot().Yaw();
+  // euler[0] =  position.Rot().Roll();
+  // euler[1] =  position.Rot().Pitch();
+  // euler[2] =  position.Rot().Yaw();
+
+  euler[0] =  -position.Rot().Pitch();
+  euler[1] =  -position.Rot().Roll();
+  euler[2] =  -position.Rot().Yaw();
+
+  euler[0] =  0.0;
+  euler[1] =  0.0;
 
   Euler2Cnb(c_nb, euler);
-  MatrixVectorMult(position_body, c_nb, position_NED);
+  // MatrixVectorMult(position_body, c_nb, position_NED);
   MatrixVectorMult(velocity_body, c_nb, velocity_NED);
 
 }

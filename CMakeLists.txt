@@ -44,10 +44,10 @@ ament_target_dependencies(gazebo_wheel_slip_plugin
 )
 
 # Build ht_nav plugin
-add_library(ht_nav_gazebo_wheel_slip_plugin SHARED ht_nav_gazebo_wheel_slip_plugin.cc)
-target_link_libraries(ht_nav_gazebo_wheel_slip_plugin ${GAZEBO_LIBRARIES})
+add_library(ht_nav_gazebo_wheel_surface_plugin SHARED ht_nav_gazebo_wheel_surface_plugin.cc)
+target_link_libraries(ht_nav_gazebo_wheel_surface_plugin ${GAZEBO_LIBRARIES})
 
-ament_target_dependencies(ht_nav_gazebo_wheel_slip_plugin
+ament_target_dependencies(ht_nav_gazebo_wheel_surface_plugin
   "gazebo"
   "gazebo_dev"
   "gazebo_ros"

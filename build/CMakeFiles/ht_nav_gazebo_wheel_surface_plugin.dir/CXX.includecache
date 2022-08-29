@@ -6,7 +6,9 @@
 
 #IncludeRegexTransform: 
 
-/home/temur/gazebo_wheel_slip_plugin/gazebo_wheel_slip_plugin.cc
+/home/temur/gazebo_wheel_slip_plugin/ht_nav_config.hh
+
+/home/temur/gazebo_wheel_slip_plugin/ht_nav_gazebo_wheel_surface_plugin.cc
 map
 -
 mutex
@@ -59,10 +61,18 @@ gazebo/transport/Subscriber.hh
 -
 gazebo/common/common.hh
 -
-gazebo_wheel_slip_plugin.hh
-/home/temur/gazebo_wheel_slip_plugin/gazebo_wheel_slip_plugin.hh
+ht_nav_gazebo_wheel_surface_plugin.hh
+/home/temur/gazebo_wheel_slip_plugin/ht_nav_gazebo_wheel_surface_plugin.hh
+ht_nav_config.hh
+/home/temur/gazebo_wheel_slip_plugin/ht_nav_config.hh
+memory
+-
+string
+-
+vector
+-
 
-/home/temur/gazebo_wheel_slip_plugin/gazebo_wheel_slip_plugin.hh
+/home/temur/gazebo_wheel_slip_plugin/ht_nav_gazebo_wheel_surface_plugin.hh
 map
 -
 memory

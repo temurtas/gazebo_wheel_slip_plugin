@@ -14,8 +14,8 @@
  * limitations under the License.
  *
 */
-#ifndef GAZEBO_PLUGINS_GAZEBOWHEELSLIPPLUGIN_HH_
-#define GAZEBO_PLUGINS_GAZEBOWHEELSLIPPLUGIN_HH_
+#ifndef GAZEBO_PLUGINS_HTNAVGAZEBOWHEELSURFACEPLUGIN_HH_
+#define GAZEBO_PLUGINS_HTNAVGAZEBOWHEELSURFACEPLUGIN_HH_
 
 #include <map>
 #include <memory>
@@ -29,7 +29,7 @@
 namespace gazebo
 {
   // Forward declare private data class
-  class GazeboWheelSlipPluginPrivate;
+  class HTNavGazeboWheelSurfacePluginPrivate;
 
   /// \brief A plugin that updates ODE wheel slip parameters based
   /// on linear wheel spin velocity (radius * spin rate).
@@ -76,36 +76,58 @@ namespace gazebo
       --+-------------------------- slipRatio
         |
 
-    <plugin filename="libGazeboWheelSlipPlugin.so" name="wheel_slip">
-      <wheel link_name="wheel_front_left">
-        <slip_compliance_lateral>0</slip_compliance_lateral>
-        <slip_compliance_longitudinal>0.1</slip_compliance_longitudinal>
-        <wheel_normal_force>100</wheel_normal_force>
+    <plugin filename="libht_nav_gazebo_wheel_surface_plugin.so" name="wheel_surface_plugin">
+      <config_params>
+        <!-- link->collision->surface->bounce -->
+        <bounce>0.0</bounce>
+        <bounceThreshold>0.0</bounceThreshold> 
+        <!-- link->collision->surface->friction->ode -->
+        <MuPrimary>0.6</MuPrimary> 
+        <MuSecondary>0.6</MuSecondary>    
+        <slip1>0.0003</slip1>
+        <slip2>0.0003</slip2>
+        <!-- link->collision->surface->friction->torsional  -->
+        <MuTorsion>10.0</MuTorsion> 
+        <SurfaceRadius>0.31265</SurfaceRadius> 
+        <PatchRadius>0</PatchRadius> 
+        <UsePatchRadius>0</UsePatchRadius> 
+        <!-- link->collision->surface->friction->contact -->
+        <PoissonsRatio>0.5</PoissonsRatio> 
+        <ElasticModulus>1e7</ElasticModulus> 
+        <minDepth>0.005</minDepth>
+        <kp>1e15</kp>
+        <kd>1e2</kd>
+        <cfm>0.0</cfm>
+        <erp>0.2</erp>
+        <maxVel>0.0</maxVel>
+        <!-- slip complience -->
+        <slipComplianceLateral>0.1</slipComplianceLateral>
+        <slipComplianceLongitudinal>0.1</slipComplianceLongitudinal>
+      </config_params>
+
+      <wheel link_name="front_left_wheel">
+        <wheel_normal_force>3315</wheel_normal_force>
       </wheel>
-      <wheel link_name="wheel_front_right">
-        <slip_compliance_lateral>0</slip_compliance_lateral>
-        <slip_compliance_longitudinal>0.1</slip_compliance_longitudinal>
-        <wheel_normal_force>100</wheel_normal_force>
+      <wheel link_name="front_right_wheel">
+        <wheel_normal_force>3315</wheel_normal_force>
       </wheel>
-      <wheel link_name="wheel_rear_left">
-        <slip_compliance_lateral>0</slip_compliance_lateral>
-        <slip_compliance_longitudinal>0.1</slip_compliance_longitudinal>
-        <wheel_normal_force>80</wheel_normal_force>
+      <wheel link_name="rear_left_wheel">
+        <wheel_normal_force>3315</wheel_normal_force>
       </wheel>
-      <wheel link_name="wheel_rear_right">
-        <slip_compliance_lateral>0</slip_compliance_lateral>
-        <slip_compliance_longitudinal>0.1</slip_compliance_longitudinal>
-        <wheel_normal_force>80</wheel_normal_force>
+      <wheel link_name="rear_right_wheel">
+        <wheel_normal_force>3315</wheel_normal_force>
       </wheel>
     </plugin>
-   \endverbatim */
-  class GZ_PLUGIN_VISIBLE GazeboWheelSlipPlugin : public ModelPlugin
+
+  \endverbatim */
+
+  class GZ_PLUGIN_VISIBLE HTNavGazeboWheelSurfacePlugin : public ModelPlugin
   {
     /// \brief Constructor.
-    public: GazeboWheelSlipPlugin();
+    public: HTNavGazeboWheelSurfacePlugin();
 
     /// \brief Destructor.
-    public: virtual ~GazeboWheelSlipPlugin();
+    public: virtual ~HTNavGazeboWheelSurfacePlugin();
 
     // Documentation inherited
     public: virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);
@@ -172,15 +194,23 @@ namespace gazebo
     /// \brief Update the plugin. This is updated every iteration of
     /// simulation.
     private: void Update();
+    public: void OnFLContacts(ConstGzStringPtr &_msg);
+    public: void OnFRContacts(ConstGzStringPtr &_msg);
+    public: void OnRLContacts(ConstGzStringPtr &_msg);
+    public: void OnRRContacts(ConstGzStringPtr &_msg);
 
     public: void rr_contact_cb();
 
     public: void LinkStateSolver(double position_NED[3], double velocity_NED[3], double velocity_body[3], double euler[3], physics::LinkPtr link);
+    public: void SteeringAngleCalc(double *steer_ang, double euler[3], double imu_euler[3]);
     public: void Euler2Cnb(double c_nb[3][3], double euler_in[3]);
     public: void MatrixVectorMult(double vector_res[3], double matrix1[3][3], double vector2[3]);
+    public: void MatrixMatrixMult(double matrix_res[3][3], double matrix1[3][3], double matrix2[3][3]);
+    public: void Cbn2Euler(double c_bn[3][3], double euler_out[3]);
+    public: void MatrixTranspose(double matrix_res[3][3], double matrix1[3][3]);
 
     /// \brief Private data pointer.
-    private: std::unique_ptr<GazeboWheelSlipPluginPrivate> dataPtr;
+    private: std::unique_ptr<HTNavGazeboWheelSurfacePluginPrivate> dataPtr;
   };
 }
 #endif
