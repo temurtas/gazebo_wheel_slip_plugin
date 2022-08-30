@@ -73,6 +73,8 @@ namespace gazebo
   {
     /// A pointer to the GazeboROS node.
     public: gazebo_ros::Node::SharedPtr ros_node_;
+      /// Contact mesage publisher.
+    // public: rclcpp::Publisher<gazebo_msgs::msg::ContactsState>::SharedPtr pub_{nullptr};
     /// Subscriber to elevator commands
     // public: rclcpp::Subscription<gazebo_msgs::msg::ContactsState>::SharedPtr sub_;
 
@@ -241,6 +243,10 @@ namespace gazebo
     public: double ang_vel_min_[4] = {0,0,0,0};
     public: double ang_vel_min_two_[4] = {0,0,0,0};
     public: double ang_vel_min_three_[4] = {0,0,0,0};
+
+    public: double F_z_[4] = {0,0,0,0};
+    public: double sigma_x_[4] = {0,0,0,0};
+    public: double alpha_x_[4] = {0,0,0,0};
 
     public: int contact_counter_[4] = {0,0,0,0};
     public: double contact_force_min_[4][3]     = {0,0,0, 0,0,0, 0,0,0, 0,0,0,};
@@ -595,9 +601,28 @@ void HTNavGazeboWheelSurfacePlugin::Load(physics::ModelPtr _model, sdf::ElementP
 
     HTNavGazeboWheelSurfacePluginPrivate::LinkSurfaceParams params;
     
+    int LINK_IND = 0;
+
+    if(linkName == "front_left_wheel"){
+      LINK_IND = this->dataPtr->FRONT_LEFT;
+    }
+    else if(linkName == "front_right_wheel"){
+      LINK_IND = this->dataPtr->FRONT_RIGHT;
+    }
+    else if(linkName == "rear_left_wheel") {
+      LINK_IND = this->dataPtr->REAR_LEFT;
+    }
+    else if(linkName == "rear_right_wheel"){
+      LINK_IND = this->dataPtr->REAR_RIGHT;
+    }
+    else{
+      LINK_IND = 0;
+    }
+
     if (wheelElem->HasElement("wheel_normal_force"))
     {
       params.wheelNormalForce = wheelElem->Get<double>("wheel_normal_force");
+      this->dataPtr->F_z_[LINK_IND] = params.wheelNormalForce;
     }
 
     if (wheelElem->HasElement("wheel_radius"))
@@ -1364,23 +1389,45 @@ void HTNavGazeboWheelSurfacePlugin::Update()
         wheel_speed = std::abs(this->dataPtr->ang_vel_avg[LINK_IND]) * params.wheelRadius;
       }
 
-      double wheel_slip = wheel_speed / 3300 / 8;
-      double wheel_slip_ang = steer_angle / 360;
+      this->dataPtr->alpha_x_[LINK_IND] = alpha_x;
+      this->dataPtr->sigma_x_[LINK_IND] = sigma_x;
+
+      if (this->dataPtr->counter_ > 75){
+        this->dataPtr->F_z_[LINK_IND] = std::abs(this->dataPtr->contact_force_avg[LINK_IND][2]);
+      }
+
+      double F_x_pacejka, F_y_pacejka;
+      CalcPacejkaModel(&F_x_pacejka, &F_y_pacejka, LINK_IND);
+
+      // RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
+      // "F_z: %lf %d", F_z , this->dataPtr->counter_ );
+
+      double wheel_slip = wheel_speed / this->dataPtr->F_z_[LINK_IND] / 8;
+      double wheel_slip_ang = steer_angle / this->dataPtr->F_z_[LINK_IND] * 9;
 
       // fprintf(this->dataPtr->fptr,"%lf\t", std::abs(this->dataPtr->ang_vel_avg[LINK_IND]) * params.wheelRadius );    // m/s
       // fprintf(this->dataPtr->fptr,"%lf\t", std::abs(this->dataPtr->lin_vel_avg[LINK_IND]) );                         // m/s
 
       fprintf(this->dataPtr->fptr,"%d\t", LINK_IND );                                                 // unitless 
-      fprintf(this->dataPtr->fptr,"%lf\t", sigma_x );                                                 // unitless 
+      fprintf(this->dataPtr->fptr,"%lf\t", this->dataPtr->F_z_[LINK_IND] );                                                 // unitless 
       fprintf(this->dataPtr->fptr,"%lf\t", alpha_x );                                                 // unitless 
       
-      fprintf(this->dataPtr->fptr,"%lf\t", wheel_slip);                                                 // unitless 
-      fprintf(this->dataPtr->fptr,"%lf\t", wheel_slip_ang);                                                 // unitless 
-
+      // fprintf(this->dataPtr->fptr,"%lf\t", wheel_slip);                                                 // unitless 
+      // fprintf(this->dataPtr->fptr,"%lf\t", wheel_slip_ang);                                                 // unitless 
+      fprintf(this->dataPtr->fptr,"%lf\t", this->dataPtr->contact_force_avg[LINK_IND][0]);                                                 // unitless 
+      fprintf(this->dataPtr->fptr,"%lf\t", F_x_pacejka);                                                 // unitless 
+      fprintf(this->dataPtr->fptr,"%lf\t", this->dataPtr->contact_force_avg[LINK_IND][1]);                                                 // unitless 
+      fprintf(this->dataPtr->fptr,"%lf\t", F_y_pacejka);                                                 // unitless                                              // unitless 
 
       // surface->slip1 = wheel_slip;
       surface->slip1 = (wheel_slip_ang + 2 * wheel_slip)/2;
       surface->slip2 = (wheel_slip_ang + 2 * wheel_slip)/2;
+
+      // double coeff_1 = sigma_x/surface->slip1;
+      // double coeff_2 = sigma_x/surface->slip2;
+      // double coeff_3 = alpha_x/surface->slip1;
+      // double coeff_4 = alpha_x/surface->slip2;
+
 
       /* link->collision->surface->friction->contact */
       surface->FrictionPyramid()->SetPoissonsRatio(config_params.PoissonsRatio);
@@ -1617,4 +1664,59 @@ void HTNavGazeboWheelSurfacePlugin::MatrixMatrixMult(double matrix_res[3][3], do
 		}
 	}
 	return;
+}
+
+void HTNavGazeboWheelSurfacePlugin::CalcPacejkaModel(double *F_x0, double *F_y0, int LINK_IND){
+  // Coeffs
+  double alpha, sigma_k;
+  double B_x0, B_y0;
+  double C_x, C_y;
+  double C_F_alpha, C_F_sigma;
+  double D_x0, D_y0;
+  double E_x0, E_y0;
+  double E_x, E_y;
+  double mu = this->dataPtr->mapLinkSurfaceConfigParams.MuPrimary;
+  double F_z = this->dataPtr->F_z_[LINK_IND];
+
+  alpha   = this->dataPtr->alpha_x_[LINK_IND];
+  sigma_k = this->dataPtr->sigma_x_[LINK_IND];
+
+  D_x0 = mu * F_z; 
+  D_y0 = mu * F_z; 
+
+  // C_F_alpha = 4.15 * F_z; // c_1 * c_2 * sin(2*atan(F_z/c_2/F_z0)) * F_z0;
+  C_F_alpha = 4.15 * F_z; // c_1 * c_2 * sin(2*atan(F_z/c_2/F_z0)) * F_z0;
+  C_F_sigma = 8 * F_z;     // c_8 * F_z;
+  // C_F_gamma = F_z;         % c_5 * F_z;
+
+  // C_F_alpha_0 = C_F_alpha;
+  // C_F_sigma_0 = C_F_sigma;
+  C_x = 0.8;
+  // C_y = 0.2;
+  C_y = 1;
+  
+  B_x0 = C_F_sigma / C_x / D_x0;
+  B_y0 = C_F_alpha / C_y / D_y0;
+
+  E_x0 = -1;
+  E_y0 = -1;
+
+  E_x = E_x0;
+  E_y = E_y0;
+
+  // % Combined Slips
+  // alpha = alpha_k + C_F_gamma / C_F_alpha * gamma_k;
+
+  // sigma_cx = sigma_k / (1 + sigma_k);
+  // sigma_cy = tan(alpha) / (1 + sigma_k);
+
+  // sigma = sqrt(sigma_cx^2 + sigma_cy^2);
+
+  // - 
+
+  *F_x0 = D_x0 * sin(C_x * atan(B_x0 * sigma_k - E_x0 * sigma_k - E_x * (B_x0 * sigma_k - atan(B_x0 * sigma_k)) ) );
+
+  *F_y0 = D_y0 * sin(C_y * atan(B_y0 * alpha - E_y0 * alpha - E_y * (B_y0 * alpha - atan(B_y0 * alpha)) ) );
+
+  return;
 }
