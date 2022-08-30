@@ -20,8 +20,10 @@
 #include "rclcpp/rclcpp.hpp"
 #include <gazebo_ros/node.hpp>
 
-#include <gazebo_msgs/msg/contact_state.hpp>
-#include <gazebo_msgs/msg/contacts_state.hpp>
+#include <gazebo/msgs/msgs.hh>
+
+// #include <gazebo_msgs/msg/contact_state.hpp>
+// #include <gazebo_msgs/msg/contacts_state.hpp>
 
 #include <ignition/common/Profiler.hh>
 
@@ -51,6 +53,8 @@
 #include "ht_nav_gazebo_wheel_surface_plugin.hh"
 #include "ht_nav_config.hh"
 
+#include "gazebo/physics/Contact.hh"
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -70,7 +74,7 @@ namespace gazebo
     /// A pointer to the GazeboROS node.
     public: gazebo_ros::Node::SharedPtr ros_node_;
     /// Subscriber to elevator commands
-    public: rclcpp::Subscription<gazebo_msgs::msg::ContactsState>::SharedPtr sub_;
+    // public: rclcpp::Subscription<gazebo_msgs::msg::ContactsState>::SharedPtr sub_;
 
     // Listen to Gazebo world_stats topic
     public:  transport::SubscriberPtr fl_subptr_;
@@ -87,6 +91,16 @@ namespace gazebo
       REAR_RIGHT,  // Rear right wheel
       IMU_LINK,    // IMU LINK
     };
+
+    public: class WheelNavParams
+    {
+      public: double position[3] = {0,0,0};
+      public: double velocity[3] = {0,0,0};
+      public: double vel_body[3] = {0,0,0};
+      public: double euler[3]    = {0,0,0};
+    };
+
+    public: std::map<int, WheelNavParams> mapWheelNavParams;
 
     public: class LinkSurfaceParams
     {
@@ -228,13 +242,37 @@ namespace gazebo
     public: double ang_vel_min_two_[4] = {0,0,0,0};
     public: double ang_vel_min_three_[4] = {0,0,0,0};
 
+    public: int contact_counter_[4] = {0,0,0,0};
+    public: double contact_force_min_[4][3]     = {0,0,0, 0,0,0, 0,0,0, 0,0,0,};
+    public: double contact_force_min_two_[4][3] = {0,0,0, 0,0,0, 0,0,0, 0,0,0,};
+    public: double contact_force_avg[4][3]      = {0,0,0, 0,0,0, 0,0,0, 0,0,0,};
+     
     public: int counter_ = 0;
     public: int init_flag_ = 0;
     public: double sim_time_ = 0.0;
 
+    public: double last_fl_upd_sim_time_ = 0.0;
+    public: double last_fr_upd_sim_time_ = 0.0;
+    public: double last_rl_upd_sim_time_ = 0.0;
+    public: double last_rr_upd_sim_time_ = 0.0;
+
+    public: double contact_force_update_freq_   = 100;
+    public: double contact_force_update_period_ = 0;
+
     public: physics::LinkPtr IMULinkptr_;
 
     public: FILE *fptr;
+
+    public: FILE *fl_fptr;
+    public: FILE *fr_fptr;
+    public: FILE *rl_fptr;
+    public: FILE *rr_fptr;
+
+    public: int fl_init_flag_ = 0;
+    public: int fr_init_flag_ = 0;
+    public: int rl_init_flag_ = 0;
+    public: int rr_init_flag_ = 0;
+
 
   };
 }
@@ -284,9 +322,17 @@ void HTNavGazeboWheelSurfacePlugin::Load(physics::ModelPtr _model, sdf::ElementP
   GZ_ASSERT(_sdf, "HTNavGazeboWheelSurfacePlugin sdf pointer is NULL");
 
   this->dataPtr->model_ = _model;
-
   this->dataPtr->model = _model;
   auto world = _model->GetWorld();
+
+  gazebo::common::Time current_time =  this->dataPtr->model_->GetWorld()->SimTime();
+  this->dataPtr->sim_time_ = current_time.sec*1e6 + current_time.nsec*1e-3; // us
+
+  this->dataPtr->last_fl_upd_sim_time_ = this->dataPtr->sim_time_;
+  this->dataPtr->last_fr_upd_sim_time_ = this->dataPtr->sim_time_;
+  this->dataPtr->last_rl_upd_sim_time_ = this->dataPtr->sim_time_;
+  this->dataPtr->last_rr_upd_sim_time_ = this->dataPtr->sim_time_;
+
   GZ_ASSERT(world, "world pointer is NULL");
   {
     ignition::math::Vector3d gravity = world->Gravity();
@@ -326,7 +372,7 @@ void HTNavGazeboWheelSurfacePlugin::Load(physics::ModelPtr _model, sdf::ElementP
     return;
   }
 
-  // Get link name
+  // Get IMU Link
   auto IMUlinkName = imuElem->Get<std::string>("link_name");
   this->dataPtr->IMULinkptr_ = _model->GetLink(IMUlinkName);
 
@@ -335,6 +381,18 @@ void HTNavGazeboWheelSurfacePlugin::Load(physics::ModelPtr _model, sdf::ElementP
 
   HTNavGazeboWheelSurfacePluginPrivate::LinkSurfaceConfigParams config_params;
 
+  // Contact Force Update Freq;
+  if (configElem->HasElement("ContactForceUpdateFreq"))
+  {
+    this->dataPtr->contact_force_update_freq_ = configElem->Get<double>("ContactForceUpdateFreq");
+    this->dataPtr->contact_force_update_period_ = 1 / this->dataPtr->contact_force_update_freq_;
+  }
+  else{
+    this->dataPtr->contact_force_update_freq_ = 100;  
+    this->dataPtr->contact_force_update_period_ = 1 / this->dataPtr->contact_force_update_freq_;
+    RCLCPP_WARN_STREAM(this->dataPtr->ros_node_->get_logger(), "missing <ContactForceUpdateFreq>, set to default: 100 ");
+  }
+  
   if (configElem->HasElement("ElasticModulus"))
   {
     config_params.ElasticModulus = configElem->Get<double>("ElasticModulus");
@@ -917,70 +975,167 @@ bool HTNavGazeboWheelSurfacePlugin::SetMuSecondary(const std::string &_wheel_nam
 }
 
 /////////////////////////////////////////////////
-void HTNavGazeboWheelSurfacePlugin::OnFLContacts(ConstGzStringPtr &_msg)
+void HTNavGazeboWheelSurfacePlugin::OnFLContacts(ConstContactsPtr &_msg)
 {
-  RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
-      "OnFLContacts Time");
+  gazebo::common::Time current_time =  this->dataPtr->model_->GetWorld()->SimTime();
+  double local_sim_time = current_time.sec*1e6 + current_time.nsec*1e-3; // us
 
-  // this->dataPtr->model = _model;
-  // auto world = _model->GetWorld();
-  gazebo::common::Time current_time2 =  this->dataPtr->model_->GetWorld()->SimTime();
-
-  double time_sec = current_time2.Double();
- 
   // RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
-  //   "Sim Time: %lf", time_sec );
+  //   "OnRLContacts Time");  
+
+  if (this->dataPtr->fl_init_flag_ == 0){
+    this->dataPtr->fl_fptr = fopen(base_path"fl_contact_forces_gazebo.txt", "w");
+    if (this->dataPtr->fl_fptr == NULL){
+      RCLCPP_ERROR(this->dataPtr->ros_node_->get_logger(), "Could not open FL file !");
+      return;
+    }
+    this->dataPtr->fl_init_flag_ = 1;
+  }
+
+  ContactStateSolver(_msg, this->dataPtr->FRONT_LEFT); 
+
+  if ( (local_sim_time - this->dataPtr->last_fl_upd_sim_time_ )*1e-6 >  this->dataPtr->contact_force_update_period_ ){
+    fprintf(this->dataPtr->fl_fptr,"%lf\t", local_sim_time);  // us
+
+    for (int iz = 0; iz < 3; ++iz)
+    {
+      fprintf(this->dataPtr->fl_fptr,"%lf\t", this->dataPtr->contact_force_avg[this->dataPtr->FRONT_LEFT][iz] );                                                 // unitless 
+    }
+
+    fprintf(this->dataPtr->fl_fptr,"\n");
+
+    current_time =  this->dataPtr->model_->GetWorld()->SimTime();
+    this->dataPtr->last_fl_upd_sim_time_ = current_time.sec*1e6 + current_time.nsec*1e-3;
+
+    return;
+  }
+  else{
+    return;
+  }
 }
 
-void HTNavGazeboWheelSurfacePlugin::OnFRContacts(ConstGzStringPtr &_msg)
+void HTNavGazeboWheelSurfacePlugin::OnFRContacts(ConstContactsPtr &_msg)
 {
-  RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
-      "OnFRContacts Time");
+  gazebo::common::Time current_time =  this->dataPtr->model_->GetWorld()->SimTime();
+  double local_sim_time = current_time.sec*1e6 + current_time.nsec*1e-3; // us
 
-  // this->dataPtr->model = _model;
-  // auto world = _model->GetWorld();
-  gazebo::common::Time current_time2 =  this->dataPtr->model_->GetWorld()->SimTime();
-
-  double time_sec = current_time2.Double();
- 
   // RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
-  //   "Sim Time: %lf", time_sec );
+  //   "OnRRContacts Time");  
+
+  if (this->dataPtr->fr_init_flag_ == 0){
+    this->dataPtr->fr_fptr = fopen(base_path"fr_contact_forces_gazebo.txt", "w");
+    if (this->dataPtr->fr_fptr == NULL){
+      RCLCPP_ERROR(this->dataPtr->ros_node_->get_logger(), "Could not open FR file !");
+      return;
+    }
+    this->dataPtr->fr_init_flag_ = 1;
+  }
+
+  ContactStateSolver(_msg, this->dataPtr->FRONT_RIGHT); 
+
+  if ( (local_sim_time - this->dataPtr->last_fr_upd_sim_time_ )*1e-6 >  this->dataPtr->contact_force_update_period_ ){
+    fprintf(this->dataPtr->fr_fptr,"%lf\t", local_sim_time);  // us
+
+    for (int iz = 0; iz < 3; ++iz)
+    {
+      fprintf(this->dataPtr->fr_fptr,"%lf\t", this->dataPtr->contact_force_avg[this->dataPtr->FRONT_RIGHT][iz] );                                                 // unitless 
+    }
+
+    fprintf(this->dataPtr->fr_fptr,"\n");
+
+    current_time =  this->dataPtr->model_->GetWorld()->SimTime();
+    this->dataPtr->last_fr_upd_sim_time_ = current_time.sec*1e6 + current_time.nsec*1e-3;
+
+    return;
+  }
+  else{
+    return;
+  }
 }
 
-void HTNavGazeboWheelSurfacePlugin::OnRLContacts(ConstGzStringPtr &_msg)
+void HTNavGazeboWheelSurfacePlugin::OnRLContacts(ConstContactsPtr &_msg)
 {
-  RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
-      "OnRLContacts Time");
+  gazebo::common::Time current_time =  this->dataPtr->model_->GetWorld()->SimTime();
+  double local_sim_time = current_time.sec*1e6 + current_time.nsec*1e-3; // us
 
-  // this->dataPtr->model = _model;
-  // auto world = _model->GetWorld();
-  gazebo::common::Time current_time2 =  this->dataPtr->model_->GetWorld()->SimTime();
-
-  double time_sec = current_time2.Double();
- 
   // RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
-  //   "Sim Time: %lf", time_sec );
+  //   "OnRLContacts Time");  
+
+  if (this->dataPtr->rl_init_flag_ == 0){
+    this->dataPtr->rl_fptr = fopen(base_path"rl_contact_forces_gazebo.txt", "w");
+    if (this->dataPtr->rl_fptr == NULL){
+      RCLCPP_ERROR(this->dataPtr->ros_node_->get_logger(), "Could not open RL file !");
+      return;
+    }
+    this->dataPtr->rl_init_flag_ = 1;
+  }
+
+  ContactStateSolver(_msg, this->dataPtr->REAR_LEFT); 
+
+  if ( (local_sim_time - this->dataPtr->last_rl_upd_sim_time_ )*1e-6 >  this->dataPtr->contact_force_update_period_ ){
+    fprintf(this->dataPtr->rl_fptr,"%lf\t", local_sim_time);  // us
+
+    for (int iz = 0; iz < 3; ++iz)
+    {
+      fprintf(this->dataPtr->rl_fptr,"%lf\t", this->dataPtr->contact_force_avg[this->dataPtr->REAR_LEFT][iz] );                                                 // unitless 
+    }
+
+    fprintf(this->dataPtr->rl_fptr,"\n");
+
+    current_time =  this->dataPtr->model_->GetWorld()->SimTime();
+    this->dataPtr->last_rl_upd_sim_time_ = current_time.sec*1e6 + current_time.nsec*1e-3;
+
+    return;
+  }
+  else{
+    return;
+  }
 }
 
-void HTNavGazeboWheelSurfacePlugin::OnRRContacts(ConstGzStringPtr &_msg)
+
+void HTNavGazeboWheelSurfacePlugin::OnRRContacts(ConstContactsPtr &_msg)
 {
-  RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
-      "OnRRContacts Time");
+  gazebo::common::Time current_time =  this->dataPtr->model_->GetWorld()->SimTime();
+  double local_sim_time = current_time.sec*1e6 + current_time.nsec*1e-3; // us
 
-  // this->dataPtr->model = _model;
-  // auto world = _model->GetWorld();
-  gazebo::common::Time current_time2 =  this->dataPtr->model_->GetWorld()->SimTime();
-
-  double time_sec = current_time2.Double();
- 
   // RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
-  //   "Sim Time: %lf", time_sec );
+  //   "OnRRContacts Time");  
+
+  if (this->dataPtr->rr_init_flag_ == 0){
+    this->dataPtr->rr_fptr = fopen(base_path"rr_contact_forces_gazebo.txt", "w");
+    if (this->dataPtr->rr_fptr == NULL){
+      RCLCPP_ERROR(this->dataPtr->ros_node_->get_logger(), "Could not open RR file !");
+      return;
+    }
+    this->dataPtr->rr_init_flag_ = 1;
+  }
+
+  ContactStateSolver(_msg, this->dataPtr->REAR_RIGHT); 
+
+  if ( (local_sim_time - this->dataPtr->last_rr_upd_sim_time_ )*1e-6 >  this->dataPtr->contact_force_update_period_ ){
+    fprintf(this->dataPtr->rr_fptr,"%lf\t", local_sim_time);  // us
+
+    for (int iz = 0; iz < 3; ++iz)
+    {
+      fprintf(this->dataPtr->rr_fptr,"%lf\t", this->dataPtr->contact_force_avg[this->dataPtr->REAR_RIGHT][iz] );                                                 // unitless 
+    }
+
+    fprintf(this->dataPtr->rr_fptr,"\n");
+
+    current_time =  this->dataPtr->model_->GetWorld()->SimTime();
+    this->dataPtr->last_rr_upd_sim_time_ = current_time.sec*1e6 + current_time.nsec*1e-3;
+
+    return;
+  }
+  else{
+    return;
+  }
 }
 
 void HTNavGazeboWheelSurfacePlugin::Update()
 {
-  RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
-      "Update Time");
+  // RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
+  //     "Update Time");
 
   // this->dataPtr->model = _model;
   // auto world = _model->GetWorld();
@@ -1114,12 +1269,19 @@ void HTNavGazeboWheelSurfacePlugin::Update()
     else{
       LINK_IND = 0;
     }
-    
+
+    for (int ix = 0; ix < 3; ix++)
+		{
+      this->dataPtr->mapWheelNavParams[LINK_IND].position[ix] = pos[ix];
+      this->dataPtr->mapWheelNavParams[LINK_IND].velocity[ix] = vel[ix];
+      this->dataPtr->mapWheelNavParams[LINK_IND].vel_body[ix] = vel_body[ix];
+      this->dataPtr->mapWheelNavParams[LINK_IND].euler[ix]    = euler[ix];
+		}  
 
     this->dataPtr->lin_vel_[LINK_IND] = vel_body[0];
     this->dataPtr->ang_vel_[LINK_IND] = std::abs(spinAngularVelocity);
 
-      if( this->dataPtr->counter_ == 0){
+    if( this->dataPtr->counter_ == 0){
       this->dataPtr->lin_vel_min_[LINK_IND]     = vel_body[0];
       this->dataPtr->lin_vel_min_two_[LINK_IND] = vel_body[0];
       this->dataPtr->lin_vel_min_three_[LINK_IND] = vel_body[0];
@@ -1136,13 +1298,13 @@ void HTNavGazeboWheelSurfacePlugin::Update()
       this->dataPtr->ang_vel_avg[LINK_IND] = temp_ang_vel_avg;
     }
 
-    this->dataPtr->lin_vel_min_[LINK_IND]     = this->dataPtr->lin_vel_[LINK_IND];
-    this->dataPtr->lin_vel_min_two_[LINK_IND] = this->dataPtr->lin_vel_min_[LINK_IND];
     this->dataPtr->lin_vel_min_three_[LINK_IND] = this->dataPtr->lin_vel_min_two_[LINK_IND];
+    this->dataPtr->lin_vel_min_two_[LINK_IND] = this->dataPtr->lin_vel_min_[LINK_IND];
+    this->dataPtr->lin_vel_min_[LINK_IND]     = this->dataPtr->lin_vel_[LINK_IND];
 
-    this->dataPtr->ang_vel_min_[LINK_IND]     = this->dataPtr->ang_vel_[LINK_IND];
-    this->dataPtr->ang_vel_min_two_[LINK_IND] = this->dataPtr->ang_vel_min_[LINK_IND];
     this->dataPtr->ang_vel_min_three_[LINK_IND] = this->dataPtr->ang_vel_min_two_[LINK_IND];
+    this->dataPtr->ang_vel_min_two_[LINK_IND] = this->dataPtr->ang_vel_min_[LINK_IND];
+    this->dataPtr->ang_vel_min_[LINK_IND]     = this->dataPtr->ang_vel_[LINK_IND];
 
 
     // if(link_name == front_left_wheel){
@@ -1280,7 +1442,7 @@ void HTNavGazeboWheelSurfacePlugin::LinkStateSolver(double position_NED[3], doub
 
   double c_nb[3][3];
   // double position_NED[3], velocity_NED[3];
-
+  double euler_temp[3];
 
   position_NED[0] = -position.Y();
   position_NED[1] = -position.X();
@@ -1298,15 +1460,74 @@ void HTNavGazeboWheelSurfacePlugin::LinkStateSolver(double position_NED[3], doub
   euler[1] =  -position.Rot().Roll();
   euler[2] =  -position.Rot().Yaw();
 
-  euler[0] =  0.0;
-  euler[1] =  0.0;
+  euler_temp[0] =  0.0;
+  euler_temp[1] =  0.0;
+  euler_temp[2] =  euler[2];
   
-  Euler2Cnb(c_nb, euler);
+  Euler2Cnb(c_nb, euler_temp);
   // MatrixVectorMult(position_body, c_nb, position_NED);
   MatrixVectorMult(velocity_body, c_nb, velocity_NED);
 
 }
 
+
+void HTNavGazeboWheelSurfacePlugin::ContactStateSolver(ConstContactsPtr &_msg, int LINK_IND){
+  double body_1_force[3];
+  double euler_tw[3], contact_force[3], c_wt[3][3], c_tw[3][3];
+  // double sim_time;
+  // double body_2_force[3], body_1_torque[3], body_2_torque[3];
+  // int time_sec, time_nsec;
+  // double contact_time = 0;
+  for (int i = 0; i < _msg->contact_size(); ++i)
+  {
+    for (int j = 0; j < _msg->contact(i).position_size(); ++j)
+    {
+
+      body_1_force[0] = - _msg->contact(i).wrench(j).body_1_wrench().force().y();
+      body_1_force[1] = - _msg->contact(i).wrench(j).body_1_wrench().force().x();
+      body_1_force[2] = - _msg->contact(i).wrench(j).body_1_wrench().force().z();
+
+      euler_tw[0] =  this->dataPtr->mapWheelNavParams[LINK_IND].euler[0];
+      euler_tw[1] =  this->dataPtr->mapWheelNavParams[LINK_IND].euler[1];
+      euler_tw[2] =  0.0;
+      
+      Euler2Cnb(c_wt, euler_tw);
+      MatrixTranspose(c_tw,c_wt);
+      MatrixVectorMult(contact_force, c_tw, body_1_force);
+
+    for (int iy = 0; iy < 3; ++iy){
+      if( this->dataPtr->contact_counter_[LINK_IND] == 0){
+        this->dataPtr->contact_force_min_[LINK_IND][iy] = contact_force[iy];
+        this->dataPtr->contact_force_min_two_[LINK_IND][iy] = contact_force[iy];
+      }
+      this->dataPtr->contact_force_avg[LINK_IND][iy] = (contact_force[iy] + this->dataPtr->contact_force_min_[LINK_IND][iy] + this->dataPtr->contact_force_min_two_[LINK_IND][iy])/3; 
+
+      this->dataPtr->contact_force_min_two_[LINK_IND][iy] = this->dataPtr->contact_force_min_[LINK_IND][iy];
+      this->dataPtr->contact_force_min_[LINK_IND][iy]     = contact_force[iy];
+    }
+
+    this->dataPtr->contact_counter_[LINK_IND] = this->dataPtr->contact_counter_[LINK_IND] + 1;
+
+    // time_sec = _msg->contact(i).time().sec();
+    // time_nsec = _msg->contact(i).time().nsec();
+    // contact_time = time_sec + time_nsec*1e-9;
+
+    // body_2_force[0] = _msg->contact(i).wrench(j).body_2_wrench().force().x();
+    // body_2_force[1] = _msg->contact(i).wrench(j).body_2_wrench().force().y();
+    // body_2_force[2] = _msg->contact(i).wrench(j).body_2_wrench().force().z();
+
+    // body_1_torque[0] = _msg->contact(i).wrench(j).body_1_wrench().torque().x();
+    // body_1_torque[1] = _msg->contact(i).wrench(j).body_1_wrench().torque().y();
+    // body_1_torque[2] = _msg->contact(i).wrench(j).body_1_wrench().torque().z();
+
+    // body_2_torque[0] = _msg->contact(i).wrench(j).body_2_wrench().torque().x();
+    // body_2_torque[1] = _msg->contact(i).wrench(j).body_2_wrench().torque().y();
+    // body_2_torque[2] = _msg->contact(i).wrench(j).body_2_wrench().torque().z();
+   }
+  } 
+
+  return;
+}
 
 void HTNavGazeboWheelSurfacePlugin::SteeringAngleCalc(double *steer_ang, double euler[3], double imu_euler[3])
 {
@@ -1315,10 +1536,20 @@ void HTNavGazeboWheelSurfacePlugin::SteeringAngleCalc(double *steer_ang, double 
   double c_tn[3][3];
   double c_tb[3][3];
 
-  double euler_temp[3];
+  double euler_temp[3], euler_temp2[3];
 
-  Euler2Cnb(c_nb, euler);
-  Euler2Cnb(c_nt, imu_euler);
+  euler_temp2[0] =  0.0;
+  euler_temp2[1] =  0.0;
+  euler_temp2[2] =  euler[2];
+
+  double imu_euler_temp2[3];
+
+  imu_euler_temp2[0] =  0.0;
+  imu_euler_temp2[1] =  0.0;
+  imu_euler_temp2[2] =  imu_euler[2];
+  
+  Euler2Cnb(c_nb, euler_temp2);
+  Euler2Cnb(c_nt, imu_euler_temp2);
   MatrixTranspose(c_tn, c_nt);
 
   // MatrixVectorMult(position_body, c_nb, position_NED);

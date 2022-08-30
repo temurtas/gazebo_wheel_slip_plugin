@@ -26,6 +26,8 @@
 #include <gazebo/common/Plugin.hh>
 #include <gazebo/util/system.hh>
 
+#include "gazebo/physics/Contact.hh"
+
 namespace gazebo
 {
   // Forward declare private data class
@@ -194,14 +196,15 @@ namespace gazebo
     /// \brief Update the plugin. This is updated every iteration of
     /// simulation.
     private: void Update();
-    public: void OnFLContacts(ConstGzStringPtr &_msg);
-    public: void OnFRContacts(ConstGzStringPtr &_msg);
-    public: void OnRLContacts(ConstGzStringPtr &_msg);
-    public: void OnRRContacts(ConstGzStringPtr &_msg);
+    public: void OnFLContacts(ConstContactsPtr &_msg);
+    public: void OnFRContacts(ConstContactsPtr &_msg);
+    public: void OnRLContacts(ConstContactsPtr &_msg);
+    public: void OnRRContacts(ConstContactsPtr &_msg);
 
     public: void rr_contact_cb();
 
     public: void LinkStateSolver(double position_NED[3], double velocity_NED[3], double velocity_body[3], double euler[3], physics::LinkPtr link);
+    public: void ContactStateSolver(ConstContactsPtr &_msg, int LINK_IND);
     public: void SteeringAngleCalc(double *steer_ang, double euler[3], double imu_euler[3]);
     public: void Euler2Cnb(double c_nb[3][3], double euler_in[3]);
     public: void MatrixVectorMult(double vector_res[3], double matrix1[3][3], double vector2[3]);

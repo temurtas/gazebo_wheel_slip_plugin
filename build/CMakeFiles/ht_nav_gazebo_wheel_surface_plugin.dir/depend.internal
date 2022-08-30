@@ -13,22 +13,10 @@ CMakeFiles/ht_nav_gazebo_wheel_surface_plugin.dir/ht_nav_gazebo_wheel_surface_pl
  /opt/ros/foxy/include/builtin_interfaces/msg/detail/time__traits.hpp
  /opt/ros/foxy/include/builtin_interfaces/msg/duration.hpp
  /opt/ros/foxy/include/builtin_interfaces/msg/time.hpp
- /opt/ros/foxy/include/gazebo_msgs/msg/contact_state.hpp
- /opt/ros/foxy/include/gazebo_msgs/msg/contacts_state.hpp
- /opt/ros/foxy/include/gazebo_msgs/msg/detail/contact_state__builder.hpp
- /opt/ros/foxy/include/gazebo_msgs/msg/detail/contact_state__struct.hpp
- /opt/ros/foxy/include/gazebo_msgs/msg/detail/contact_state__traits.hpp
- /opt/ros/foxy/include/gazebo_msgs/msg/detail/contacts_state__builder.hpp
- /opt/ros/foxy/include/gazebo_msgs/msg/detail/contacts_state__struct.hpp
- /opt/ros/foxy/include/gazebo_msgs/msg/detail/contacts_state__traits.hpp
  /opt/ros/foxy/include/gazebo_ros/executor.hpp
  /opt/ros/foxy/include/gazebo_ros/node.hpp
  /opt/ros/foxy/include/gazebo_ros/node_visibility_control.h
  /opt/ros/foxy/include/gazebo_ros/qos.hpp
- /opt/ros/foxy/include/geometry_msgs/msg/detail/vector3__struct.hpp
- /opt/ros/foxy/include/geometry_msgs/msg/detail/vector3__traits.hpp
- /opt/ros/foxy/include/geometry_msgs/msg/detail/wrench__struct.hpp
- /opt/ros/foxy/include/geometry_msgs/msg/detail/wrench__traits.hpp
  /opt/ros/foxy/include/libstatistics_collector/collector/collector.hpp
  /opt/ros/foxy/include/libstatistics_collector/collector/generate_statistics_message.hpp
  /opt/ros/foxy/include/libstatistics_collector/collector/metric_details_interface.hpp
@@ -292,8 +280,6 @@ CMakeFiles/ht_nav_gazebo_wheel_surface_plugin.dir/ht_nav_gazebo_wheel_surface_pl
  /opt/ros/foxy/include/statistics_msgs/msg/detail/metrics_message__traits.hpp
  /opt/ros/foxy/include/statistics_msgs/msg/detail/statistic_data_point__struct.hpp
  /opt/ros/foxy/include/statistics_msgs/msg/metrics_message.hpp
- /opt/ros/foxy/include/std_msgs/msg/detail/header__struct.hpp
- /opt/ros/foxy/include/std_msgs/msg/detail/header__traits.hpp
  /opt/ros/foxy/include/tracetools/config.h
  /opt/ros/foxy/include/tracetools/tracetools.h
  /opt/ros/foxy/include/tracetools/utils.hpp
@@ -487,6 +473,7 @@ CMakeFiles/ht_nav_gazebo_wheel_surface_plugin.dir/ht_nav_gazebo_wheel_surface_pl
  /usr/include/gazebo-11/gazebo/physics/Base.hh
  /usr/include/gazebo-11/gazebo/physics/Collision.hh
  /usr/include/gazebo-11/gazebo/physics/CollisionState.hh
+ /usr/include/gazebo-11/gazebo/physics/Contact.hh
  /usr/include/gazebo-11/gazebo/physics/CylinderShape.hh
  /usr/include/gazebo-11/gazebo/physics/Entity.hh
  /usr/include/gazebo-11/gazebo/physics/Inertial.hh
