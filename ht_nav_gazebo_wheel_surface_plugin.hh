@@ -212,6 +212,7 @@ namespace gazebo
     public: void Cbn2Euler(double c_bn[3][3], double euler_out[3]);
     public: void MatrixTranspose(double matrix_res[3][3], double matrix1[3][3]);
     public: void CalcPacejkaModel(double *F_x0, double *F_y0, int LINK_IND);
+    public: void ContactMessageConstr(sensor_msgs::msg::JointState *msg, int LINK_IND);
 
     /// \brief Private data pointer.
     private: std::unique_ptr<HTNavGazeboWheelSurfacePluginPrivate> dataPtr;

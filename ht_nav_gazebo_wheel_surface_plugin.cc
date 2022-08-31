@@ -24,6 +24,7 @@
 
 // #include <gazebo_msgs/msg/contact_state.hpp>
 // #include <gazebo_msgs/msg/contacts_state.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 
 #include <ignition/common/Profiler.hh>
 
@@ -74,7 +75,8 @@ namespace gazebo
     /// A pointer to the GazeboROS node.
     public: gazebo_ros::Node::SharedPtr ros_node_;
       /// Contact mesage publisher.
-    // public: rclcpp::Publisher<gazebo_msgs::msg::ContactsState>::SharedPtr pub_{nullptr};
+    public: std::array<rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr, 4> publishers;
+    // public: rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_{nullptr};
     /// Subscriber to elevator commands
     // public: rclcpp::Subscription<gazebo_msgs::msg::ContactsState>::SharedPtr sub_;
 
@@ -247,11 +249,13 @@ namespace gazebo
     public: double F_z_[4] = {0,0,0,0};
     public: double sigma_x_[4] = {0,0,0,0};
     public: double alpha_x_[4] = {0,0,0,0};
+    public: double F_x_pacejka_[4] = {0,0,0,0};
+    public: double F_y_pacejka_[4] = {0,0,0,0};
 
     public: int contact_counter_[4] = {0,0,0,0};
-    public: double contact_force_min_[4][3]     = {0,0,0, 0,0,0, 0,0,0, 0,0,0,};
-    public: double contact_force_min_two_[4][3] = {0,0,0, 0,0,0, 0,0,0, 0,0,0,};
-    public: double contact_force_avg[4][3]      = {0,0,0, 0,0,0, 0,0,0, 0,0,0,};
+    public: double contact_force_min_[4][3]     = {0,0,0, 0,0,0, 0,0,0, 0,0,0};
+    public: double contact_force_min_two_[4][3] = {0,0,0, 0,0,0, 0,0,0, 0,0,0};
+    public: double contact_force_avg[4][3]      = {0,0,0, 0,0,0, 0,0,0, 0,0,0};
      
     public: int counter_ = 0;
     public: int init_flag_ = 0;
@@ -790,7 +794,15 @@ void HTNavGazeboWheelSurfacePlugin::Load(physics::ModelPtr _model, sdf::ElementP
 // /gazebo/default/kobra_mk5/rear_left_wheel/rl_bumper_plugin/contacts
 // /gazebo/default/kobra_mk5/rear_right_wheel/rr_bumper_plugin/contacts
 
-
+  this->dataPtr->publishers[this->dataPtr->FRONT_LEFT] = this->dataPtr->ros_node_->create_publisher<sensor_msgs::msg::JointState>(
+      _model->GetName() + "/front_left_wheel_contact_states", qos.get_publisher_qos(_model->GetName() + "/front_left_wheel_contact_states", rclcpp::QoS(1000)));
+  this->dataPtr->publishers[this->dataPtr->FRONT_RIGHT] = this->dataPtr->ros_node_->create_publisher<sensor_msgs::msg::JointState>(
+      _model->GetName() + "/front_right_wheel_contact_states", qos.get_publisher_qos(_model->GetName() + "/front_right_wheel_contact_states", rclcpp::QoS(1000)));
+  this->dataPtr->publishers[this->dataPtr->REAR_LEFT] = this->dataPtr->ros_node_->create_publisher<sensor_msgs::msg::JointState>(
+      _model->GetName() + "/rear_left_wheel_contact_states", qos.get_publisher_qos(_model->GetName() + "/rear_left_wheel_contact_states", rclcpp::QoS(1000)));
+  this->dataPtr->publishers[this->dataPtr->REAR_RIGHT] = this->dataPtr->ros_node_->create_publisher<sensor_msgs::msg::JointState>(
+      _model->GetName() + "/rear_right_wheel_contact_states", qos.get_publisher_qos(_model->GetName() + "/rear_right_wheel_contact_states", rclcpp::QoS(1000)));
+  
   this->dataPtr->fl_subptr_ = this->dataPtr->gzNode->Subscribe(
       "~/" + _model->GetName() + "/front_left_wheel/fl_bumper_plugin/contacts",
       &HTNavGazeboWheelSurfacePlugin::OnFLContacts, this);
@@ -1032,6 +1044,13 @@ void HTNavGazeboWheelSurfacePlugin::OnFLContacts(ConstContactsPtr &_msg)
     current_time =  this->dataPtr->model_->GetWorld()->SimTime();
     this->dataPtr->last_fl_upd_sim_time_ = current_time.sec*1e6 + current_time.nsec*1e-3;
 
+    // Populate message
+    sensor_msgs::msg::JointState contact_msg;
+    contact_msg.header.stamp.sec = current_time.sec;
+    contact_msg.header.stamp.nanosec = current_time.nsec;
+    ContactMessageConstr(&contact_msg, this->dataPtr->FRONT_LEFT);
+    this->dataPtr->publishers[this->dataPtr->FRONT_LEFT]->publish(contact_msg);
+
     return;
   }
   else{
@@ -1070,6 +1089,13 @@ void HTNavGazeboWheelSurfacePlugin::OnFRContacts(ConstContactsPtr &_msg)
 
     current_time =  this->dataPtr->model_->GetWorld()->SimTime();
     this->dataPtr->last_fr_upd_sim_time_ = current_time.sec*1e6 + current_time.nsec*1e-3;
+
+    // Populate message
+    sensor_msgs::msg::JointState contact_msg;
+    contact_msg.header.stamp.sec = current_time.sec;
+    contact_msg.header.stamp.nanosec = current_time.nsec;
+    ContactMessageConstr(&contact_msg, this->dataPtr->FRONT_RIGHT);
+    this->dataPtr->publishers[this->dataPtr->FRONT_RIGHT]->publish(contact_msg);
 
     return;
   }
@@ -1110,6 +1136,13 @@ void HTNavGazeboWheelSurfacePlugin::OnRLContacts(ConstContactsPtr &_msg)
     current_time =  this->dataPtr->model_->GetWorld()->SimTime();
     this->dataPtr->last_rl_upd_sim_time_ = current_time.sec*1e6 + current_time.nsec*1e-3;
 
+    // Populate message
+    sensor_msgs::msg::JointState contact_msg;
+    contact_msg.header.stamp.sec = current_time.sec;
+    contact_msg.header.stamp.nanosec = current_time.nsec;
+    ContactMessageConstr(&contact_msg, this->dataPtr->REAR_LEFT);
+    this->dataPtr->publishers[this->dataPtr->REAR_LEFT]->publish(contact_msg);
+
     return;
   }
   else{
@@ -1149,6 +1182,13 @@ void HTNavGazeboWheelSurfacePlugin::OnRRContacts(ConstContactsPtr &_msg)
 
     current_time =  this->dataPtr->model_->GetWorld()->SimTime();
     this->dataPtr->last_rr_upd_sim_time_ = current_time.sec*1e6 + current_time.nsec*1e-3;
+
+    // Populate message
+    sensor_msgs::msg::JointState contact_msg;
+    contact_msg.header.stamp.sec = current_time.sec;
+    contact_msg.header.stamp.nanosec = current_time.nsec;
+    ContactMessageConstr(&contact_msg, this->dataPtr->REAR_RIGHT);
+    this->dataPtr->publishers[this->dataPtr->REAR_RIGHT]->publish(contact_msg);
 
     return;
   }
@@ -1359,8 +1399,6 @@ void HTNavGazeboWheelSurfacePlugin::Update()
       /* link->collision->surface->bounce */
       // surface->bounce = config_params.bounce; 
       // surface->bounceThreshold = config_params.bounceThreshold;
-      
-
 
       /* link->collision->surface->friction->ode */
       surface->FrictionPyramid()->SetMuPrimary(config_params.MuPrimary);
@@ -1399,6 +1437,10 @@ void HTNavGazeboWheelSurfacePlugin::Update()
       double F_x_pacejka, F_y_pacejka;
       CalcPacejkaModel(&F_x_pacejka, &F_y_pacejka, LINK_IND);
 
+      this->dataPtr->F_x_pacejka_[LINK_IND] = F_x_pacejka;
+      this->dataPtr->F_y_pacejka_[LINK_IND] = F_y_pacejka;
+      
+      
       // RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
       // "F_z: %lf %d", F_z , this->dataPtr->counter_ );
 
@@ -1428,7 +1470,6 @@ void HTNavGazeboWheelSurfacePlugin::Update()
       // double coeff_3 = alpha_x/surface->slip1;
       // double coeff_4 = alpha_x/surface->slip2;
 
-
       /* link->collision->surface->friction->contact */
       surface->FrictionPyramid()->SetPoissonsRatio(config_params.PoissonsRatio);
       surface->FrictionPyramid()->SetElasticModulus(config_params.ElasticModulus);
@@ -1451,11 +1492,9 @@ void HTNavGazeboWheelSurfacePlugin::Update()
         usepatch = true;
       }
       surface->FrictionPyramid()->SetUsePatchRadius(usepatch);
-
       // surface->FrictionPyramid()->SetMuPrimary(0.9);
       // surface->FrictionPyramid()->SetMuSecondary(0.9);
     }
-
 
     // Try to publish slip data for this wheel
     if (link)
@@ -1717,6 +1756,48 @@ void HTNavGazeboWheelSurfacePlugin::CalcPacejkaModel(double *F_x0, double *F_y0,
   *F_x0 = D_x0 * sin(C_x * atan(B_x0 * sigma_k - E_x0 * sigma_k - E_x * (B_x0 * sigma_k - atan(B_x0 * sigma_k)) ) );
 
   *F_y0 = D_y0 * sin(C_y * atan(B_y0 * alpha - E_y0 * alpha - E_y * (B_y0 * alpha - atan(B_y0 * alpha)) ) );
+
+  return;
+}
+
+
+void HTNavGazeboWheelSurfacePlugin::ContactMessageConstr(sensor_msgs::msg::JointState *msg, int LINK_IND)
+{
+  msg->name.resize(3);
+  msg->position.resize(3);
+  msg->velocity.resize(3);
+  msg->effort.resize(3);
+
+  auto link_name = "front_left_wheel";
+
+  if( LINK_IND == this->dataPtr->FRONT_LEFT){
+    link_name = "front_left_wheel";
+  }
+  else if(LINK_IND == this->dataPtr->FRONT_RIGHT){
+    link_name = "front_right_wheel";
+  }
+  else if(LINK_IND == this->dataPtr->REAR_LEFT) {
+    link_name = "rear_left_wheel";
+  }
+  else if(LINK_IND == this->dataPtr->REAR_RIGHT){
+    link_name = "rear_right_wheel";
+  }
+  else{
+    link_name = "front_left_wheel";
+  }
+
+  msg->name[0] = link_name;
+  msg->name[1] = link_name;
+  msg->name[2] = link_name;
+  msg->position[0] = this->dataPtr->contact_force_avg[LINK_IND][0];
+  msg->position[1] = this->dataPtr->contact_force_avg[LINK_IND][1];
+  msg->position[2] = this->dataPtr->contact_force_avg[LINK_IND][2];
+  msg->velocity[0] = this->dataPtr->alpha_x_[LINK_IND];
+  msg->velocity[1] = this->dataPtr->sigma_x_[LINK_IND];
+  msg->velocity[2] = this->dataPtr->ang_vel_avg[LINK_IND];
+  msg->effort[0] =  this->dataPtr->F_x_pacejka_[LINK_IND];
+  msg->effort[1] =  this->dataPtr->F_y_pacejka_[LINK_IND];
+  msg->effort[2] =  this->dataPtr->lin_vel_avg[LINK_IND];
 
   return;
 }
