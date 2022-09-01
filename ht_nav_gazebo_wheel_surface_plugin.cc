@@ -60,6 +60,8 @@
 #include <string>
 #include <vector>
 
+#define DEBUG_PRINT 0
+
 namespace gazebo
 {
   namespace physics
@@ -1210,7 +1212,7 @@ void HTNavGazeboWheelSurfacePlugin::Update()
   double time_nces = current_time.nsec;
   this->dataPtr->sim_time_ = time_sec*1e6 + time_nces*1e-3; // us
 
-
+#if DEBUG_PRINT
   // RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
   //   "Sim Time: %lf", time_sec );
   if (this->dataPtr->init_flag_ == 0){
@@ -1221,7 +1223,7 @@ void HTNavGazeboWheelSurfacePlugin::Update()
     }
     this->dataPtr->init_flag_ = 1;
   }
-
+#endif
   IGN_PROFILE("HTNavGazeboWheelSurfacePlugin::OnUpdate");
   IGN_PROFILE_BEGIN("Update");
   // Get slip data so it can be published later
@@ -1229,9 +1231,9 @@ void HTNavGazeboWheelSurfacePlugin::Update()
   this->GetSlips(slips);
 
   std::lock_guard<std::mutex> lock(this->dataPtr->mutex);
-
+#if DEBUG_PRINT
   fprintf(this->dataPtr->fptr,"%lf\t", this->dataPtr->sim_time_);  // us
-
+#endif
   const auto config_params = this->dataPtr->mapLinkSurfaceConfigParams;
   for (const auto &linkSurface : this->dataPtr->mapLinkSurfaceParams)
   {
@@ -1447,11 +1449,12 @@ void HTNavGazeboWheelSurfacePlugin::Update()
       double wheel_slip = wheel_speed / this->dataPtr->F_z_[LINK_IND] / 8;
       double wheel_slip_ang = steer_angle / this->dataPtr->F_z_[LINK_IND] * 9;
 
+#if DEBUG_PRINT
       // fprintf(this->dataPtr->fptr,"%lf\t", std::abs(this->dataPtr->ang_vel_avg[LINK_IND]) * params.wheelRadius );    // m/s
       // fprintf(this->dataPtr->fptr,"%lf\t", std::abs(this->dataPtr->lin_vel_avg[LINK_IND]) );                         // m/s
 
       fprintf(this->dataPtr->fptr,"%d\t", LINK_IND );                                                 // unitless 
-      fprintf(this->dataPtr->fptr,"%lf\t", this->dataPtr->F_z_[LINK_IND] );                                                 // unitless 
+      fprintf(this->dataPtr->fptr,"%lf\t", sigma_x );                                                 // unitless 
       fprintf(this->dataPtr->fptr,"%lf\t", alpha_x );                                                 // unitless 
       
       // fprintf(this->dataPtr->fptr,"%lf\t", wheel_slip);                                                 // unitless 
@@ -1460,10 +1463,16 @@ void HTNavGazeboWheelSurfacePlugin::Update()
       fprintf(this->dataPtr->fptr,"%lf\t", F_x_pacejka);                                                 // unitless 
       fprintf(this->dataPtr->fptr,"%lf\t", this->dataPtr->contact_force_avg[LINK_IND][1]);                                                 // unitless 
       fprintf(this->dataPtr->fptr,"%lf\t", F_y_pacejka);                                                 // unitless                                              // unitless 
-
+#endif
       // surface->slip1 = wheel_slip;
-      surface->slip1 = (wheel_slip_ang + 2 * wheel_slip)/2;
-      surface->slip2 = (wheel_slip_ang + 2 * wheel_slip)/2;
+      if (std::abs(this->dataPtr->lin_vel_avg[LINK_IND]) < 0.25){
+        surface->slip1 = config_params.slip1;
+        surface->slip2 = config_params.slip2;      
+      }
+      else{
+        surface->slip1 = (wheel_slip_ang + 2 * wheel_slip)/2;
+        surface->slip2 = (wheel_slip_ang + 2 * wheel_slip)/2;
+      }
 
       // double coeff_1 = sigma_x/surface->slip1;
       // double coeff_2 = sigma_x/surface->slip2;
@@ -1506,9 +1515,9 @@ void HTNavGazeboWheelSurfacePlugin::Update()
         params.slipPub->Publish(msg);
     }
   }
-
+#if DEBUG_PRINT
   fprintf(this->dataPtr->fptr,"\n");
-
+#endif
   this->dataPtr->counter_ = this->dataPtr->counter_+1;
   IGN_PROFILE_END();
 }
