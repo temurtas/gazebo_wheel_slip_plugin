@@ -248,6 +248,7 @@ namespace gazebo
     public: double ang_vel_min_two_[4] = {0,0,0,0};
     public: double ang_vel_min_three_[4] = {0,0,0,0};
 
+    public: double steer_angle_[4] = {0,0,0,0};
     public: double F_z_[4] = {0,0,0,0};
     public: double sigma_x_[4] = {0,0,0,0};
     public: double alpha_x_[4] = {0,0,0,0};
@@ -1446,6 +1447,9 @@ void HTNavGazeboWheelSurfacePlugin::Update()
       // RCLCPP_INFO(this->dataPtr->ros_node_->get_logger(),
       // "F_z: %lf %d", F_z , this->dataPtr->counter_ );
 
+      double ster_factor = 0.0;
+      this->dataPtr->steer_angle_[LINK_IND] = steer_angle;
+      ster_factor = ( (this->dataPtr->steer_angle_[ this->dataPtr->FRONT_LEFT] + this->dataPtr->steer_angle_[ this->dataPtr->FRONT_RIGHT]) / 2) / this->dataPtr->F_z_[LINK_IND] * 9 ;
       double wheel_slip = wheel_speed / this->dataPtr->F_z_[LINK_IND] / 8;
       double wheel_slip_ang = steer_angle / this->dataPtr->F_z_[LINK_IND] * 9;
 
@@ -1465,13 +1469,21 @@ void HTNavGazeboWheelSurfacePlugin::Update()
       fprintf(this->dataPtr->fptr,"%lf\t", F_y_pacejka);                                                 // unitless                                              // unitless 
 #endif
       // surface->slip1 = wheel_slip;
-      if (std::abs(this->dataPtr->lin_vel_avg[LINK_IND]) < 0.25){
+      
+      // double slip_12 = (ster_factor / 256 + wheel_slip_ang / 2 + 2 * wheel_slip)/2; 
+      // double slip_12 = (ster_factor / 16 + wheel_slip_ang / 16 + 2 * wheel_slip)/2; 
+      // double slip_12 = (ster_factor / 32 + wheel_slip_ang / 32 + 2 * wheel_slip)/2;
+      // double slip_12 = (ster_factor / 64 + wheel_slip_ang / 64 + 2 * wheel_slip)/2;
+      double slip_12 = (ster_factor / 256 + wheel_slip_ang / 8 + 2 * wheel_slip)/2;
+      if (std::abs(this->dataPtr->lin_vel_avg[LINK_IND]) < 0.05){
         surface->slip1 = config_params.slip1;
         surface->slip2 = config_params.slip2;      
       }
       else{
-        surface->slip1 = (wheel_slip_ang + 2 * wheel_slip)/2;
-        surface->slip2 = (wheel_slip_ang + 2 * wheel_slip)/2;
+        surface->slip1 = slip_12;
+        surface->slip2 = slip_12;    
+        // surface->slip1 = (wheel_slip_ang + 2 * wheel_slip)/2;
+        // surface->slip2 = (wheel_slip_ang + 2 * wheel_slip)/2;
       }
 
       // double coeff_1 = sigma_x/surface->slip1;
@@ -1732,9 +1744,27 @@ void HTNavGazeboWheelSurfacePlugin::CalcPacejkaModel(double *F_x0, double *F_y0,
   D_x0 = mu * F_z; 
   D_y0 = mu * F_z; 
 
+  // wheel_slip_ang / 2 
   // C_F_alpha = 4.15 * F_z; // c_1 * c_2 * sin(2*atan(F_z/c_2/F_z0)) * F_z0;
-  C_F_alpha = 4.15 * F_z; // c_1 * c_2 * sin(2*atan(F_z/c_2/F_z0)) * F_z0;
-  C_F_sigma = 8 * F_z;     // c_8 * F_z;
+  // C_F_sigma = 8 * F_z;     // c_8 * F_z;
+ 
+  // wheel_slip_ang / 16 
+  // C_F_alpha = 6.5 * F_z; // c_1 * c_2 * sin(2*atan(F_z/c_2/F_z0)) * F_z0;
+  // C_F_sigma = 7.75 * F_z;     // c_8 * F_z;
+  
+  // wheel_slip_ang / 32 
+  // C_F_alpha = 7.15 * F_z; // c_1 * c_2 * sin(2*atan(F_z/c_2/F_z0)) * F_z0;
+  // C_F_sigma = 7.85 * F_z;     // c_8 * F_z;
+
+  // wheel_slip_ang / 64
+  // C_F_alpha = 8.15 * F_z; // c_1 * c_2 * sin(2*atan(F_z/c_2/F_z0)) * F_z0;
+  // C_F_sigma = 7.95 * F_z;     // c_8 * F_z;
+
+  // wheel_slip_ang / 128
+  C_F_alpha = 8.0 * F_z; // c_1 * c_2 * sin(2*atan(F_z/c_2/F_z0)) * F_z0;
+  C_F_sigma = 8.0 * F_z;     // c_8 * F_z;
+
+  // C_F_sigma = 5.25 * F_z;     // c_8 * F_z;
   // C_F_gamma = F_z;         % c_5 * F_z;
 
   // C_F_alpha_0 = C_F_alpha;
@@ -1762,9 +1792,14 @@ void HTNavGazeboWheelSurfacePlugin::CalcPacejkaModel(double *F_x0, double *F_y0,
 
   // - 
 
-  *F_x0 = D_x0 * sin(C_x * atan(B_x0 * sigma_k - E_x0 * sigma_k - E_x * (B_x0 * sigma_k - atan(B_x0 * sigma_k)) ) );
 
-  *F_y0 = D_y0 * sin(C_y * atan(B_y0 * alpha - E_y0 * alpha - E_y * (B_y0 * alpha - atan(B_y0 * alpha)) ) );
+  *F_x0 = D_x0 * sin(C_x * atan(B_x0 * sigma_k - E_x * (B_x0 * sigma_k - atan(B_x0 * sigma_k)) ) );
+
+  *F_y0 = D_y0 * sin(C_y * atan(B_y0 * alpha - - E_y * (B_y0 * alpha - atan(B_y0 * alpha)) ) );
+  
+  // *F_x0 = D_x0 * sin(C_x * atan(B_x0 * sigma_k - E_x0 * sigma_k - E_x * (B_x0 * sigma_k - atan(B_x0 * sigma_k)) ) );
+
+  // *F_y0 = D_y0 * sin(C_y * atan(B_y0 * alpha - E_y0 * alpha - E_y * (B_y0 * alpha - atan(B_y0 * alpha)) ) );
 
   return;
 }
