@@ -1790,7 +1790,8 @@ void HTNavGazeboWheelSurfacePlugin::CalcPacejkaModel(double *F_x0, double *F_y0,
 
   // C_F_alpha_0 = C_F_alpha;
   // C_F_sigma_0 = C_F_sigma;
-  C_x = 0.8;
+  // C_x = 0.8;
+  C_x = 1.44;
   // C_y = 0.2;
   C_y = 1;
   
