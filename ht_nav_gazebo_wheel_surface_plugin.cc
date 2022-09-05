@@ -1474,7 +1474,22 @@ void HTNavGazeboWheelSurfacePlugin::Update()
       // double slip_12 = (ster_factor / 16 + wheel_slip_ang / 16 + 2 * wheel_slip)/2; 
       // double slip_12 = (ster_factor / 32 + wheel_slip_ang / 32 + 2 * wheel_slip)/2;
       // double slip_12 = (ster_factor / 64 + wheel_slip_ang / 64 + 2 * wheel_slip)/2;
-      double slip_12 = (ster_factor / 256 + wheel_slip_ang / 8 + 2 * wheel_slip)/2;
+
+      // First Commited Version
+      // double slip_12 = (wheel_slip_ang + 2 * wheel_slip)/2;
+      // Second Commited Version
+      // double slip_12 = (ster_factor / 256 + wheel_slip_ang / 8 + 2 * wheel_slip)/2;
+
+      double slip_12 = 0.0;
+      if(LINK_IND == this->dataPtr->FRONT_LEFT || LINK_IND == this->dataPtr->FRONT_RIGHT){
+        // Third Commited Version
+        slip_12 = ( 3 * wheel_slip_ang / 128 + wheel_slip_ang / 8 + 2 * wheel_slip)/2;
+      }
+      else{
+      // Second Commited Version
+        slip_12 = (ster_factor / 256 + wheel_slip_ang / 8 + 2 * wheel_slip)/2;
+      }
+
       if (std::abs(this->dataPtr->lin_vel_avg[LINK_IND]) < 0.05){
         surface->slip1 = config_params.slip1;
         surface->slip2 = config_params.slip2;      
@@ -1745,6 +1760,7 @@ void HTNavGazeboWheelSurfacePlugin::CalcPacejkaModel(double *F_x0, double *F_y0,
   D_y0 = mu * F_z; 
 
   // wheel_slip_ang / 2 
+  // First Commited Version
   // C_F_alpha = 4.15 * F_z; // c_1 * c_2 * sin(2*atan(F_z/c_2/F_z0)) * F_z0;
   // C_F_sigma = 8 * F_z;     // c_8 * F_z;
  
@@ -1761,6 +1777,11 @@ void HTNavGazeboWheelSurfacePlugin::CalcPacejkaModel(double *F_x0, double *F_y0,
   // C_F_sigma = 7.95 * F_z;     // c_8 * F_z;
 
   // wheel_slip_ang / 128
+  // Second Commited Version
+  // C_F_alpha = 8.0 * F_z; // c_1 * c_2 * sin(2*atan(F_z/c_2/F_z0)) * F_z0;
+  // C_F_sigma = 8.0 * F_z;     // c_8 * F_z;
+
+  // Second & Third Commited Version
   C_F_alpha = 8.0 * F_z; // c_1 * c_2 * sin(2*atan(F_z/c_2/F_z0)) * F_z0;
   C_F_sigma = 8.0 * F_z;     // c_8 * F_z;
 
