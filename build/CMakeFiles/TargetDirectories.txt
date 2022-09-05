@@ -1,7 +1,0 @@
-/home/temur/gazebo_wheel_slip_plugin/build/CMakeFiles/rebuild_cache.dir
-/home/temur/gazebo_wheel_slip_plugin/build/CMakeFiles/edit_cache.dir
-/home/temur/gazebo_wheel_slip_plugin/build/CMakeFiles/test.dir
-/home/temur/gazebo_wheel_slip_plugin/build/CMakeFiles/ht_nav_gazebo_wheel_surface_plugin.dir
-/home/temur/gazebo_wheel_slip_plugin/build/CMakeFiles/gazebo_wheel_slip_plugin.dir
-/home/temur/gazebo_wheel_slip_plugin/build/CMakeFiles/Gazebo_uninstall.dir
-/home/temur/gazebo_wheel_slip_plugin/build/CMakeFiles/uninstall.dir
