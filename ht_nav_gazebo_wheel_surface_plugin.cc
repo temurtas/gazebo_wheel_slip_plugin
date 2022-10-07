@@ -1450,7 +1450,8 @@ void HTNavGazeboWheelSurfacePlugin::Update()
       double ster_factor = 0.0;
       this->dataPtr->steer_angle_[LINK_IND] = steer_angle;
       ster_factor = ( (this->dataPtr->steer_angle_[ this->dataPtr->FRONT_LEFT] + this->dataPtr->steer_angle_[ this->dataPtr->FRONT_RIGHT]) / 2) / this->dataPtr->F_z_[LINK_IND] * 9 ;
-      double wheel_slip = wheel_speed / this->dataPtr->F_z_[LINK_IND] / 8;
+      // double wheel_slip = wheel_speed / this->dataPtr->F_z_[LINK_IND] / 8; // Defence Jury Edition
+      double wheel_slip = wheel_speed / this->dataPtr->F_z_[LINK_IND] / 8 * 1.2;
       double wheel_slip_ang = steer_angle / this->dataPtr->F_z_[LINK_IND] * 9;
 
 #if DEBUG_PRINT
